@@ -4,12 +4,16 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatImageView;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ImageView;
 
+import com.bumptech.glide.Glide;
 import com.kevalpatel2106.emoticongifkeyboard.EmoticonGIFKeyboardFragment;
 import com.kevalpatel2106.emoticongifkeyboard.emoticons.Emoticon;
 import com.kevalpatel2106.emoticongifkeyboard.emoticons.EmoticonSelectListener;
@@ -40,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        final AppCompatImageView gifImageView = findViewById(R.id.selected_git_iv);
+        final ImageView gifImageView = findViewById(R.id.selected_git_iv);
 
         //Set the emoticon text view.
         final EmoticonTextView textView = findViewById(R.id.selected_emoticons_tv);
@@ -58,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
           will render system emoticons. Here we are setting Android 8.0 emoticons icon pack.
          */
         editText.setEmoticonProvider(IosEmoticonProvider.create());
+        hideSoftKeyboard();
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 
 
         //Set emoticon configuration.
@@ -95,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         //Create GIF config
-        EmoticonGIFKeyboardFragment.GIFConfig gifConfig = new EmoticonGIFKeyboardFragment
+        final EmoticonGIFKeyboardFragment.GIFConfig gifConfig = new EmoticonGIFKeyboardFragment
                 /*
                   Set the desired GIF provider. Here we are using GIPHY to provide GIFs.
                   Create Giphy GIF provider by passing your key.
@@ -111,7 +117,10 @@ public class MainActivity extends AppCompatActivity {
                     public void onGifSelected(@NonNull Gif gif) {
                         //Do something with the selected GIF.
                         Log.d(TAG, "onGifSelected: " + gif.getGifUrl());
-
+                        Glide.with(MainActivity.this)
+                                .load(gif.getGifUrl())
+                                .placeholder(R.drawable.ic_gif)
+                                .into(gifImageView);
                     }
                 });
 
@@ -123,21 +132,27 @@ public class MainActivity extends AppCompatActivity {
           as null, GIF functionality will be disabled.
          */
         mEmoticonGIFKeyboardFragment = EmoticonGIFKeyboardFragment
-                .getNewInstance(findViewById(R.id.keyboard_container), emoticonConfig, gifConfig);
+                .getNewInstance(findViewById(R.id.keyboard_container), null, gifConfig);
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.keyboard_container, mEmoticonGIFKeyboardFragment)
                 .commit();
         mEmoticonGIFKeyboardFragment.open(); //Open the fragment by default while initializing.
 
-
         //Set smiley button to open/close the emoticon gif keyboard
         findViewById(R.id.emoji_open_close_btn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mEmoticonGIFKeyboardFragment.toggle();
-                toggleKeyboardVisibility(MainActivity.this);
+                mEmoticonGIFKeyboardFragment = EmoticonGIFKeyboardFragment
+                        .getNewInstance(findViewById(R.id.keyboard_container), null, gifConfig);
+                getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.keyboard_container, mEmoticonGIFKeyboardFragment)
+                        .commit();
+                mEmoticonGIFKeyboardFragment.open(); //Open the fragment by default while initializing.
+                hideKeyboard();
             }
+
         });
 
         //Send button
@@ -150,9 +165,27 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void hideKeyboard() {
+        InputMethodManager imm = (InputMethodManager) getSystemService(Activity.INPUT_METHOD_SERVICE);
+        //Find the currently focused view, so we can grab the correct window token from it.
+        View viewNew = getCurrentFocus();
+        //If no view currently has focus, create a new one, just so we can grab a window token from it
+        if (viewNew == null) {
+            viewNew = new View(MainActivity.this);
+        }
+        imm.hideSoftInputFromWindow(viewNew.getWindowToken(), 0);
+    }
+
     @Override
     public void onBackPressed() {
         if (mEmoticonGIFKeyboardFragment == null || !mEmoticonGIFKeyboardFragment.handleBackPressed())
             super.onBackPressed();
+    }
+
+    public void hideSoftKeyboard() {
+        if(getCurrentFocus()!=null) {
+            InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+        }
     }
 }
